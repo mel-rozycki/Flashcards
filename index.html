@@ -1,11 +1,11 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Flashcards Moderno</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flashcards Aprimorado</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -60,32 +60,60 @@
       background: #1d4ed8;
     }
     .flashcard {
+      perspective: 1000px;
+      margin-bottom: 1.5rem;
+    }
+    .flashcard-inner {
+      position: relative;
+      width: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.8s;
+    }
+    .flashcard.flip .flashcard-inner {
+      transform: rotateY(180deg);
+    }
+    .flashcard-face {
       background: white;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
+      padding: 1rem;
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-      cursor: pointer;
-      transition: transform 0.4s;
-      perspective: 1000px;
-    }
-    .flashcard:hover {
-      transform: scale(1.02);
-    }
-    .card-content img {
-      max-width: 100%;
-      max-height: 200px;
-    }
-    textarea {
+      backface-visibility: hidden;
+      position: absolute;
       width: 100%;
-      height: 100px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      border-radius: 6px;
+      min-height: 200px;
+    }
+    .flashcard-back {
+      transform: rotateY(180deg);
+    }
+    .editable {
       border: 1px solid #ccc;
+      padding: 0.5rem;
+      border-radius: 6px;
+      min-height: 80px;
+      margin-bottom: 0.5rem;
+      background: #fff;
+    }
+    .image {
+      max-width: 100%;
+      max-height: 150px;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
     }
     .hidden {
       display: none;
+    }
+    .flip-button {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -101,37 +129,22 @@
   <main>
     <h2 id="currentTitle">Selecione uma lista</h2>
     <div class="controls">
-      <button onclick="addList()">+ Nova Lista</button>
-      <button onclick="addFlashcard()">+ Novo Card</button>
-      <button onclick="showImportBox()">Importar Texto</button>
+      <button onclick="addList()">📂 Nova Lista</button>
+      <button onclick="addFlashcard()">➕ Novo Card</button>
+      <button onclick="startPracticeMode()">🎯 Praticar</button>
     </div>
-    <textarea id="importBox" class="hidden" placeholder="frente;verso
-frente2;verso2"></textarea>
-    <button onclick="importFromText()" class="hidden" id="importConfirm">Importar</button>
     <div id="flashcards"></div>
   </main>
 
   <script>
-    let data = {
-      "Gramática": {
-        "Transitividade e Predicado": [],
-        "Sujeito inexistente e verbos impessoais - Para corrigir": []
-      },
-      "Direito Administrativo": {
-        "ORGANIZAÇÃO ADMINISTRATIVA": [],
-        "Sentidos da Adm pública": []
-      }
-    };
+    let data = {};
     let currentFolder = null;
     let currentList = null;
 
-    const foldersDiv = document.getElementById('folders');
-    const flashcardsDiv = document.getElementById('flashcards');
-    const currentTitle = document.getElementById('currentTitle');
-
     function renderFolders() {
+      const foldersDiv = document.getElementById('folders');
       foldersDiv.innerHTML = '';
-      for (let folder in data) {
+      for (const folder in data) {
         const folderDiv = document.createElement('div');
         folderDiv.className = 'folder';
         folderDiv.textContent = folder;
@@ -142,110 +155,7 @@ frente2;verso2"></textarea>
 
     function selectFolder(folder) {
       currentFolder = folder;
-      const lists = data[folder];
+      const foldersDiv = document.getElementById('folders');
       foldersDiv.innerHTML = `<strong>${folder}</strong>`;
-      for (let list in lists) {
-        const listDiv = document.createElement('div');
-        listDiv.className = 'list';
-        listDiv.textContent = list;
-        listDiv.onclick = () => selectList(folder, list);
-        foldersDiv.appendChild(listDiv);
-      }
-    }
-
-    function selectList(folder, list) {
-      currentFolder = folder;
-      currentList = list;
-      currentTitle.textContent = `${folder} > ${list}`;
-      renderCards();
-    }
-
-    function renderCards() {
-      flashcardsDiv.innerHTML = '';
-      const cards = data[currentFolder][currentList];
-      cards.forEach((card, index) => {
-        const cardDiv = document.createElement('div');
-        cardDiv.className = 'flashcard';
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'card-content';
-        contentDiv.innerHTML = card.front;
-        cardDiv.appendChild(contentDiv);
-        let flipped = false;
-        cardDiv.onclick = () => {
-          contentDiv.innerHTML = flipped ? card.front : card.back;
-          flipped = !flipped;
-        };
-        flashcardsDiv.appendChild(cardDiv);
-      });
-    }
-
-    function addFolder() {
-      const name = prompt("Nome da nova pasta:");
-      if (name) {
-        data[name] = {};
-        renderFolders();
-      }
-    }
-
-    function addList() {
-      if (!currentFolder) return alert("Selecione uma pasta primeiro.");
-      const name = prompt("Nome da nova lista:");
-      if (name) {
-        data[currentFolder][name] = [];
-        selectFolder(currentFolder);
-      }
-    }
-
-    function addFlashcard() {
-      if (!currentFolder || !currentList) return alert("Selecione uma lista primeiro.");
-      const front = prompt("Texto da frente (você pode colar imagem aqui depois)");
-      const back = prompt("Texto do verso (ou imagem)");
-      if (front && back) {
-        data[currentFolder][currentList].push({ front, back });
-        renderCards();
-      }
-    }
-
-    function showImportBox() {
-      document.getElementById('importBox').classList.remove('hidden');
-      document.getElementById('importConfirm').classList.remove('hidden');
-    }
-
-    function importFromText() {
-      const text = document.getElementById('importBox').value;
-      const lines = text.split('\n');
-      lines.forEach(line => {
-        const [front, back] = line.split(';');
-        if (front && back) {
-          data[currentFolder][currentList].push({ front, back });
-        }
-      });
-      document.getElementById('importBox').value = '';
-      document.getElementById('importBox').classList.add('hidden');
-      document.getElementById('importConfirm').classList.add('hidden');
-      renderCards();
-    }
-
-    function exportData() {
-      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "flashcards.json";
-      a.click();
-    }
-
-    function importData(event) {
-      const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        data = JSON.parse(e.target.result);
-        renderFolders();
-      };
-      reader.readAsText(file);
-    }
-
-    renderFolders();
-  </script>
-</body>
-</html>
+      for (const list in data[folder]) {
+        const listDiv
